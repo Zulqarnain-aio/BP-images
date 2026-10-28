@@ -46,7 +46,7 @@ GZ_FFS_GUID = uuid.UUID('9e21fd93-9c72-4c15-8c4b-e77f1db2d792')
 GZ_FREE_FROM = 0x1e9210       # original end of the FFS (8-aligned); 0xFF up to 0x200000
 # PE32 images inside the decompressed volume: (offset, size)
 PE = {'DisplayDxe': (0x316664, 0x3d000), 'EnvDxe': (0x166d34, 0x14000),
-      'GraphicsConsoleDxe': (0x12db84, 0xc000)}
+      'GraphicsConsoleDxe': (0x12db84, 0xc000), 'DALSys': (0x22311c, 0x3f000)}
 
 ENV_CAVE = 0x11800            # zero padding at the end of EnvDxe .text
 ENV_EARLY = 0x11880
@@ -67,6 +67,9 @@ VERSIONS = {
     'v6': dict(sbl1=('gpio84_low.s', [HOOK_BUILD]),
                uefi=['displaydxe_bl_low', 'envdxe_bl_on', 'envdxe_early_splash',
                      'gc_no_clear']),
+    'v7': dict(sbl1=('gpio84_low.s', [HOOK_BUILD]),
+               uefi=['displaydxe_bl_low', 'envdxe_bl_on', 'envdxe_early_splash',
+                     'gc_no_clear', 'envdxe_lt9211d_fast_poll', 'dalsys_pwrkey_1500ms']),
 }
 
 
@@ -192,10 +195,39 @@ def patch_gc_no_clear(pe):
     p32(g, 0x1b90, 0xaa1f03e0)                              # mov x0, xzr
 
 
+def patch_envdxe_lt9211d_fast_poll(pe):
+    # LT9211D init (EnvDxe 0x331c) sleeps 100 ms after every RX/TX state pass
+    # that has not reached RxState 6 / TxState 5. Lontium's state machine has
+    # no pause between passes; its settle times are delays inside the state
+    # handlers (PCR, VidChk, PLL, timing), which stay. 100 ms -> 5 ms, and the
+    # pass cap 499 -> 4095 so the timeout stays about 20 s.
+    e = pe['EnvDxe']
+    assert u32(e, 0x3464) == 0x5290d417 and u32(e, 0x3480) == 0x72a00037  # w23 = 100000
+    assert u32(e, 0x3498) == 0xaa1703e0                    # mov x0, x23
+    assert bl_target(u32(e, 0x349c), 0x349c) == ENV_DELAY  # bl MicroSecondDelay
+    p32(e, 0x3498, 0x52827100)                              # mov w0, #5000
+    assert u32(e, 0x34f4) == 0xf107cf5f                    # cmp x26, #499
+    p32(e, 0x34f4, 0xf13fff5f)                              # cmp x26, #4095
+
+
+def patch_dalsys_pwrkey_1500ms(pe):
+    # DAL property 134 of /pmic/target is pm_pwrkey_dbnc_chk {chk_at, msec, ...}
+    # (struct index 49 -> DALSys 0x206f0). PmicDxe (chk_at 2 = core) shuts down
+    # unless PWRKEY is still held when the APSS QTimer (0xf120000, starts at
+    # SoC reset) reaches msec. 1600 -> 1500.
+    d = pe['DALSys']
+    assert u32(d, 0x14d10) == 0x12000086 and u32(d, 0x14d14) == 49
+    assert struct.unpack_from('<QQ', d, 0x144c0 + 49 * 16) == (8, 0x206f0)
+    assert struct.unpack_from('<II', d, 0x206f0) == (2, 1600)
+    p32(d, 0x206f4, 1500)
+
+
 UEFI_PATCHES = {'displaydxe_bl_low': patch_displaydxe_bl_low,
                 'envdxe_bl_on': patch_envdxe_bl_on,
                 'envdxe_early_splash': patch_envdxe_early_splash,
-                'gc_no_clear': patch_gc_no_clear}
+                'gc_no_clear': patch_gc_no_clear,
+                'envdxe_lt9211d_fast_poll': patch_envdxe_lt9211d_fast_poll,
+                'dalsys_pwrkey_1500ms': patch_dalsys_pwrkey_1500ms}
 
 
 def patch_uefi(b, names):

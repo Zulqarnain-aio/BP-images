@@ -20,7 +20,8 @@ rebuilds byte for byte from `original/xbl_unsigned.elf`.
 | KIOSK-BP-xbl-v3 | a8f47f5f | diagnostic, never flashed | v2 stub + 2 s hold in SBL1 |
 | KIOSK-BP-xbl-v4 | 34822b23 | ok, verified | Backlight dark until the splash is on the LVDS |
 | KIOSK-BP-xbl-v5 | c4759741 | **current**, verified | v4 + splash shown as soon as DisplayDxe is up |
-| KIOSK-BP-xbl-v6 | ec576f6d | built, not yet verified on a Kiosk | v5 + GraphicsConsoleDxe no longer clears the logo |
+| KIOSK-BP-xbl-v6 | ec576f6d | ok, logo seen from first light | v5 + GraphicsConsoleDxe no longer clears the logo |
+| KIOSK-BP-xbl-v7 | 5bc30d2b | built, boots; hold and panels not yet checked by hand | v6 + LT9211D poll 100 ms → 5 ms, power-key hold 1600 → 1500 ms |
 
 Details of each version are in [CHANGELOG.md](CHANGELOG.md).
 
@@ -70,6 +71,8 @@ running.
 | EnvDxe 0x2930 | Quectel SplashScreenRenderCallback: DisplayUtils RenderLogo, GPIO101 high, LT9211D init (0x331c), Ctrl+C poll loop |
 | GraphicsConsoleDxe 0x1b90 | In ConOutSetMode (0x1a50): GOP->Blt black fill, taken when the GOP is already in the target mode. v6 replaces it with `mov x0, xzr` |
 | GraphicsConsoleDxe 0x24f8 | Driver Start signals the "display set mode" group 29d73c39-… on every start, after the SetMode above |
+| EnvDxe 0x3498 | LT9211D state machine (0x331c): 100 ms sleep between passes. v7 passes 5000 µs; cap at 0x34f4 raised from 499 to 4095 passes |
+| DALSys 0x206f4 | PmicDxe power-key hold, in ms (DAL property 0x12000086 → struct {2, 1600}). v7 sets 1500 |
 | EnvDxe 0x2b94 | Registers 0x2930 on the "display set mode" event group 29d73c39-…, which GraphicsConsoleDxe signals late in DXE |
 
 Background and the disassembly trail are in the knowledge bank:
