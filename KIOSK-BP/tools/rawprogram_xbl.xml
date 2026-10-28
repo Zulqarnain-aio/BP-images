@@ -1,0 +1,5 @@
+<?xml version="1.0" ?>
+<data>
+  <program SECTOR_SIZE_IN_BYTES="512" file_sector_offset="0" filename="xbl.elf" label="xbl_a" num_partition_sectors="7168" partofsingleimage="false" physical_partition_number="0" readbackverify="false" size_in_KB="3584.0" sparse="false" start_byte_hex="0x370fb000" start_sector="1804248" />
+  <program SECTOR_SIZE_IN_BYTES="512" file_sector_offset="0" filename="xbl.elf" label="xbl_b" num_partition_sectors="7168" partofsingleimage="false" physical_partition_number="0" readbackverify="false" size_in_KB="3584.0" sparse="false" start_byte_hex="0x3747b000" start_sector="1811416" />
+</data>
