@@ -19,13 +19,13 @@ rebuilds byte for byte from `original/xbl_unsigned.elf`.
 | KIOSK-BP-xbl-v2 | 6ebc5a8f | superseded | v1 at 16 mA + pull-down, at six SBL1 points; no visible effect |
 | KIOSK-BP-xbl-v3 | a8f47f5f | diagnostic, never flashed | v2 stub + 2 s hold in SBL1 |
 | KIOSK-BP-xbl-v4 | 34822b23 | ok, verified | Backlight dark until the splash is on the LVDS |
-| KIOSK-BP-xbl-v5 | c4759741 | **current**, verified | v4 + splash shown as soon as DisplayDxe is up |
+| KIOSK-BP-xbl-v5 | c4759741 | ok, verified | v4 + splash shown as soon as DisplayDxe is up |
 | KIOSK-BP-xbl-v6 | ec576f6d | ok, logo seen from first light | v5 + GraphicsConsoleDxe no longer clears the logo |
-| KIOSK-BP-xbl-v7 | 5bc30d2b | built, boots; hold and panels not yet checked by hand | v6 + LT9211D poll 100 ms → 5 ms, power-key hold 1600 → 1500 ms |
+| KIOSK-BP-xbl-v7 | 5bc30d2b | **current**, verified | v6 + LT9211D poll 100 ms → 5 ms, power-key hold 1600 → 1500 ms |
 
 Details of each version are in [CHANGELOG.md](CHANGELOG.md).
 
-## Boot display sequence (v5)
+## Boot display sequence (v7)
 
 1. Power-on to about 0.25 s: the backlight may glow. This is before any XBL code
    runs; only a hardware default on Disp_EN can remove it.
@@ -35,18 +35,20 @@ Details of each version are in [CHANGELOG.md](CHANGELOG.md).
    patched to drive it low.
 4. When DisplayDxe installs its protocols (display up), EnvDxe
    (`src/uefi/envdxe_early_splash.s`) sets the GOP mode and runs Quectel's splash
-   callback. The callback draws the logo, starts the LT9211D MIPI-to-LVDS bridge,
-   and 250 ms later (`src/uefi/envdxe_backlight_on.s`) raises GPIO84. The 27 in
+   callback. The callback draws the logo, starts the LT9211D MIPI-to-LVDS bridge
+   (its state machine is polled every 5 ms, not 100 ms), and 250 ms later (`src/uefi/envdxe_backlight_on.s`) raises GPIO84. The 27 in
    panel spec asks for at least 200 ms of valid signal before the backlight. So
    the first thing lit is the logo, on every panel size, and the 27 in RGB
    no-signal pattern is never visible.
-5. The kernel keeps GPIO84 high (`dsi_panel.c`, `pwm_inverted`).
+5. GraphicsConsoleDxe's SetMode no longer fills the screen black, so the logo
+   stays on until the kernel takes over.
+6. The kernel keeps GPIO84 high (`dsi_panel.c`, `pwm_inverted`).
 
 ## Build, sign, flash
 
 ```sh
-tools/build_xbl.py v5 /tmp/xbl_v5_unsigned.elf     # needs the Android clang (CLANG_BIN)
-tools/sign.sh /tmp/xbl_v5_unsigned.elf /tmp/xbl.elf # sectools, OEM test certs
+tools/build_xbl.py v7 /tmp/xbl_v7_unsigned.elf     # needs the Android clang (CLANG_BIN)
+tools/sign.sh /tmp/xbl_v7_unsigned.elf /tmp/xbl.elf # sectools, OEM test certs
 tools/flash_edl.sh /tmp/xbl.elf                     # qdl over EDL, xbl_a and xbl_b
 ```
 

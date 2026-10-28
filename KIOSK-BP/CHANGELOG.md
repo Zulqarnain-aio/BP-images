@@ -2,7 +2,7 @@
 
 Newest first. md5 is of the signed `releases/vN/xbl.elf`.
 
-## v7: logo 1 s earlier, 1.5 s power-key hold (5bc30d2b, not yet checked by hand)
+## v7: logo 1 s earlier, 1.5 s power-key hold (5bc30d2b, current)
 - The logo came up about 2 s after the power-key hold. Most of that is the
   LT9211D state machine in EnvDxe (0x331c): after every pass that has not yet
   reached RxState 6 / TxState 5 it sleeps 100 ms (0x3498). Lontium's reference
@@ -15,8 +15,8 @@ Newest first. md5 is of the signed `releases/vN/xbl.elf`.
 - Power-key hold: the Kiosk value was 1600 ms, not 3000 ms (the 3000 ms "1 2 3"
   log came from another board's test build). It is a DAL property read by
   PmicDxe: DALSys 0x206f0 = {2, 1600}. v7 sets 1500 (DALSys 0x206f4).
-- To check on a Kiosk: a 1.5 s hold boots, a short tap shuts down again, and
-  the logo comes up on the 18, 22 and 27 in panels.
+- Verified on a Kiosk: the logo comes up about 1 s sooner and a 1.5 s hold
+  boots.
 
 ## v6: GraphicsConsoleDxe no longer wipes the early logo (ec576f6d)
 - On v5 the logo is wiped while the backlight is on. GraphicsConsoleConOutSetMode
@@ -33,7 +33,7 @@ Newest first. md5 is of the signed `releases/vN/xbl.elf`.
   redraw.
 - Seen on a Kiosk: the logo is on as soon as the backlight comes up.
 
-## v5: show the splash as soon as the display is up (c4759741, current)
+## v5: show the splash as soon as the display is up (c4759741)
 - Before v5, the splash callback (logo, LT9211D, backlight) ran on the "display
   set mode" event. GraphicsConsoleDxe signals that event late in DXE. EnvDxe now
   also registers for the installation of EFI_DISPLAY_UTILS, which DisplayDxe
