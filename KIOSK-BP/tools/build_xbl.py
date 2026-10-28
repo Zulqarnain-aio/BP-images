@@ -45,7 +45,8 @@ GZ_FFS = 0x41aa8              # FFS file (segment offset) holding the gzip secti
 GZ_FFS_GUID = uuid.UUID('9e21fd93-9c72-4c15-8c4b-e77f1db2d792')
 GZ_FREE_FROM = 0x1e9210       # original end of the FFS (8-aligned); 0xFF up to 0x200000
 # PE32 images inside the decompressed volume: (offset, size)
-PE = {'DisplayDxe': (0x316664, 0x3d000), 'EnvDxe': (0x166d34, 0x14000)}
+PE = {'DisplayDxe': (0x316664, 0x3d000), 'EnvDxe': (0x166d34, 0x14000),
+      'GraphicsConsoleDxe': (0x12db84, 0xc000)}
 
 ENV_CAVE = 0x11800            # zero padding at the end of EnvDxe .text
 ENV_EARLY = 0x11880
@@ -63,6 +64,9 @@ VERSIONS = {
                uefi=['displaydxe_bl_low', 'envdxe_bl_on']),
     'v5': dict(sbl1=('gpio84_low.s', [HOOK_BUILD]),
                uefi=['displaydxe_bl_low', 'envdxe_bl_on', 'envdxe_early_splash']),
+    'v6': dict(sbl1=('gpio84_low.s', [HOOK_BUILD]),
+               uefi=['displaydxe_bl_low', 'envdxe_bl_on', 'envdxe_early_splash',
+                     'gc_no_clear']),
 }
 
 
@@ -177,9 +181,21 @@ def patch_envdxe_early_splash(pe):
     p32(e, 0x2a58, 0x7100001f | (299 << 10) | (20 << 5))
 
 
+def patch_gc_no_clear(pe):
+    # GraphicsConsoleConOutSetMode (0x1a50): when the GOP is already in the
+    # target mode it fills the screen black instead of calling SetMode. v5
+    # sets the mode early, so that fill wipes the logo. Skip it (EFI_SUCCESS).
+    g = pe['GraphicsConsoleDxe']
+    assert u32(g, 0x1b6c) == 0x2a1f03e2                    # mov w2, wzr (EfiBltVideoFill)
+    assert u32(g, 0x1b8c) == 0xa9007ff9                    # stp x25, xzr, [sp] (Height, Delta)
+    assert u32(g, 0x1b90) == 0xd63f02a0                    # blr x21 (GOP->Blt)
+    p32(g, 0x1b90, 0xaa1f03e0)                              # mov x0, xzr
+
+
 UEFI_PATCHES = {'displaydxe_bl_low': patch_displaydxe_bl_low,
                 'envdxe_bl_on': patch_envdxe_bl_on,
-                'envdxe_early_splash': patch_envdxe_early_splash}
+                'envdxe_early_splash': patch_envdxe_early_splash,
+                'gc_no_clear': patch_gc_no_clear}
 
 
 def patch_uefi(b, names):

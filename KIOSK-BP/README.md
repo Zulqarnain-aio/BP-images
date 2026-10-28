@@ -20,6 +20,7 @@ rebuilds byte for byte from `original/xbl_unsigned.elf`.
 | KIOSK-BP-xbl-v3 | a8f47f5f | diagnostic, never flashed | v2 stub + 2 s hold in SBL1 |
 | KIOSK-BP-xbl-v4 | 34822b23 | ok, verified | Backlight dark until the splash is on the LVDS |
 | KIOSK-BP-xbl-v5 | c4759741 | **current**, verified | v4 + splash shown as soon as DisplayDxe is up |
+| KIOSK-BP-xbl-v6 | ec576f6d | built, not yet verified on a Kiosk | v5 + GraphicsConsoleDxe no longer clears the logo |
 
 Details of each version are in [CHANGELOG.md](CHANGELOG.md).
 
@@ -48,6 +49,10 @@ tools/sign.sh /tmp/xbl_v5_unsigned.elf /tmp/xbl.elf # sectools, OEM test certs
 tools/flash_edl.sh /tmp/xbl.elf                     # qdl over EDL, xbl_a and xbl_b
 ```
 
+The sectools signature is not deterministic: a rebuild matches a release in
+every ELF segment except the hash/signature segment (1), so compare segments,
+not the md5 of the signed file.
+
 Or flash `xbl.elf` from this folder (or `releases/vN/xbl.elf`) with QFIL as usual.
 
 **Recovery.** If a build does not boot, force EDL by hand and flash
@@ -63,6 +68,8 @@ running.
 | TLMM GPIO84 | cfg 0x954000, io 0x954004 (TLMM 0x400000 + SOUTH tile 0x500000 + 84 × 0x1000) |
 | DisplayDxe 0x14a30 | Quectel "GPIO Configuration": GPIO 27/83/84/85 high. GpioOut(84) value at 0x14b04 |
 | EnvDxe 0x2930 | Quectel SplashScreenRenderCallback: DisplayUtils RenderLogo, GPIO101 high, LT9211D init (0x331c), Ctrl+C poll loop |
+| GraphicsConsoleDxe 0x1b90 | In ConOutSetMode (0x1a50): GOP->Blt black fill, taken when the GOP is already in the target mode. v6 replaces it with `mov x0, xzr` |
+| GraphicsConsoleDxe 0x24f8 | Driver Start signals the "display set mode" group 29d73c39-… on every start, after the SetMode above |
 | EnvDxe 0x2b94 | Registers 0x2930 on the "display set mode" event group 29d73c39-…, which GraphicsConsoleDxe signals late in DXE |
 
 Background and the disassembly trail are in the knowledge bank:

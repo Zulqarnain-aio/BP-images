@@ -2,6 +2,22 @@
 
 Newest first. md5 is of the signed `releases/vN/xbl.elf`.
 
+## v6: GraphicsConsoleDxe no longer wipes the early logo (ec576f6d, not yet verified)
+- On v5 the logo is wiped while the backlight is on. GraphicsConsoleConOutSetMode
+  (GraphicsConsoleDxe 0x1a50) calls GOP SetMode only if the GOP mode differs
+  from the target. Otherwise it fills the screen black with GOP->Blt
+  (0x1b90). v5 already set the mode, so the fill path runs.
+- GraphicsConsoleDxe 0x1b90: `blr x21` (GOP->Blt) → `mov x0, xzr`.
+  Everything else is the same as v5.
+- On v4 the fill also ran, but the logo was drawn after it. That fill is now
+  skipped too, and the logo is drawn over it anyway.
+- Not explained yet: GraphicsConsoleDxe's Start (0x24f8–0x2514) signals the
+  "display set mode" group after the fill on every start, so the v5 wrapper's
+  redraw should have run. v6 removes the fill, so it does not depend on that
+  redraw.
+- To check on a Kiosk: the logo stays on from first light to the kernel
+  handover, with no black frame or faint glow.
+
 ## v5: show the splash as soon as the display is up (c4759741, current)
 - Before v5, the splash callback (logo, LT9211D, backlight) ran on the "display
   set mode" event. GraphicsConsoleDxe signals that event late in DXE. EnvDxe now
